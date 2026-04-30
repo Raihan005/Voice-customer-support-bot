@@ -1,0 +1,213 @@
+/* ============================================
+   Support Page Styles
+   ============================================ */
+
+.support-page {
+  padding: var(--space-2xl) 0 var(--space-3xl);
+  min-height: calc(100vh - 64px);
+}
+
+/* Hero */
+.support-hero {
+  text-align: center;
+  padding: var(--space-2xl) 0 var(--space-3xl);
+  position: relative;
+}
+
+.support-hero-glow {
+  position: absolute;
+  width: 500px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(0, 212, 170, 0.1) 0%, transparent 70%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.support-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: var(--gradient-card);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-primary);
+  margin-bottom: var(--space-lg);
+  animation: float 5s ease-in-out infinite;
+}
+
+.support-hero h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: 800;
+  margin-bottom: var(--space-md);
+}
+
+.support-hero p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Contact Channels */
+.support-channels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+  margin-bottom: var(--space-3xl);
+}
+
+.support-channel {
+  padding: var(--space-xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.support-channel-icon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 92, 252, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  transition: all var(--transition-base);
+}
+
+.support-channel:hover .support-channel-icon {
+  background: var(--color-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+.support-channel h3 {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.support-channel p {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.support-channel-detail {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary-light);
+  font-weight: 500;
+}
+
+/* Support Grid */
+.support-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2xl);
+  align-items: start;
+}
+
+.support-faq h2,
+.support-form-section h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-lg);
+}
+
+/* FAQ */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.faq-item {
+  overflow: hidden;
+}
+
+.faq-item.expanded {
+  border-color: rgba(124, 92, 252, 0.3);
+}
+
+.faq-question {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: left;
+  gap: var(--space-md);
+  transition: background var(--transition-fast);
+}
+
+.faq-question:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.faq-answer {
+  padding: 0 var(--space-lg) var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+/* Contact Form */
+.support-form {
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Success State */
+.support-success {
+  text-align: center;
+  padding: var(--space-3xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.support-success-icon {
+  color: var(--color-success);
+  animation: scaleIn 0.5s var(--transition-spring);
+}
+
+.support-success h3 {
+  font-size: var(--font-size-xl);
+}
+
+.support-success p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 400px;
+  line-height: 1.7;
+  margin-bottom: var(--space-md);
+}
+
+@media (max-width: 1024px) {
+  .support-channels {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .support-channels {
+    grid-template-columns: 1fr;
+  }
+
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
+}
