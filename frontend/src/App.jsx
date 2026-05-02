@@ -9,15 +9,20 @@ import ProfilePage from './pages/ProfilePage';
 import SupportPage from './pages/SupportPage';
 
 function ProtectedRoute({ children }) {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
+  if (authLoading) return <div className="auth-loading"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/" replace />;
   return children;
 }
 
 function AppRoutes() {
-  const { user } = useApp();
+  const { user, authLoading } = useApp();
   const location = useLocation();
   const isAuthPage = location.pathname === '/';
+
+  if (authLoading) {
+    return <div className="auth-loading"><div className="spinner" /></div>;
+  }
 
   return (
     <>
