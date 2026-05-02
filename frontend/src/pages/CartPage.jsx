@@ -41,9 +41,11 @@ export default function CartPage() {
     }
   };
 
-  const handlePlaceOrder = () => {
-    const order = placeOrder(shipping);
-    navigate('/profile', { state: { showOrders: true, newOrder: order.id } });
+  const handlePlaceOrder = async () => {
+    const order = await placeOrder(shipping);
+    if (order) {
+      navigate('/profile', { state: { showOrders: true, newOrder: order.id } });
+    }
   };
 
   if (cart.length === 0 && step === 'cart') {
