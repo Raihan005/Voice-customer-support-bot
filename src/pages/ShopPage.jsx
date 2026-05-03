@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { useState } from 'react';
+import { products, categories } from '../data/products';
 import { useApp } from '../context/AppContext';
-import { Search, Star, ShoppingCart, Filter, Sparkles, Loader } from 'lucide-react';
+import { Search, Star, ShoppingCart, Filter, Sparkles } from 'lucide-react';
 import './ShopPage.css';
 
 export default function ShopPage() {
@@ -10,37 +10,7 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState('featured');
   const [buyingProduct, setBuyingProduct] = useState(null);
   const [buyForm, setBuyForm] = useState({ color: '', quantity: 1 });
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState(['All']);
-  const [loading, setLoading] = useState(true);
   const { addToCart } = useApp();
-
-  // Fetch products from Supabase
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('id');
-
-        if (error) throw error;
-
-        setProducts(data || []);
-
-        // Extract unique categories
-        const cats = ['All', ...new Set((data || []).map(p => p.category))];
-        setCategories(cats);
-      } catch (err) {
-        console.error('Error fetching products:', err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
 
   const filtered = products
     .filter(p => {
@@ -139,12 +109,7 @@ export default function ShopPage() {
       {/* Product Grid */}
       <section className="shop-products">
         <div className="container">
-          {loading ? (
-            <div className="shop-empty">
-              <Loader size={48} className="spinner" />
-              <h3>Loading products...</h3>
-            </div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="shop-empty">
               <span className="shop-empty-icon">🔍</span>
               <h3>No products found</h3>
@@ -184,7 +149,7 @@ export default function ShopPage() {
                     <div className="product-card-footer">
                       <div className="product-price">
                         <span className="product-price-currency">$</span>
-                        <span className="product-price-value">{Number(product.price).toFixed(2)}</span>
+                        <span className="product-price-value">{product.price.toFixed(2)}</span>
                       </div>
                       <button
                         className="btn btn-primary btn-sm"
@@ -212,7 +177,7 @@ export default function ShopPage() {
                 <span className="buy-modal-emoji">{buyingProduct.emoji}</span>
                 <div>
                   <h3>{buyingProduct.name}</h3>
-                  <p className="buy-modal-price">${Number(buyingProduct.price).toFixed(2)}</p>
+                  <p className="buy-modal-price">${buyingProduct.price.toFixed(2)}</p>
                 </div>
               </div>
 
@@ -262,7 +227,7 @@ export default function ShopPage() {
                 <div className="buy-modal-total">
                   <span>Total</span>
                   <span className="gradient-text" style={{ fontWeight: 700, fontSize: 'var(--font-size-xl)' }}>
-                    ${(Number(buyingProduct.price) * buyForm.quantity).toFixed(2)}
+                    ${(buyingProduct.price * buyForm.quantity).toFixed(2)}
                   </span>
                 </div>
 

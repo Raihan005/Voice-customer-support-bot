@@ -42,11 +42,14 @@ export default function AuthPage() {
       return;
     }
 
+    // Simulate loading
+    await new Promise(r => setTimeout(r, 600));
+
     let result;
     if (isLogin) {
-      result = await login(formData.email, formData.password);
+      result = login(formData.email, formData.password);
     } else {
-      result = await signup(formData.name, formData.email, formData.password);
+      result = signup(formData.name, formData.email, formData.password);
     }
 
     if (result.success) {

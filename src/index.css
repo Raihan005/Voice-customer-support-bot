@@ -539,22 +539,3 @@ ul, ol {
     padding: 0 var(--space-md);
   }
 }
-
-/* ============================================
-   Auth Loading Screen
-   ============================================ */
-
-.auth-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: var(--color-bg);
-}
-
-.auth-loading .spinner {
-  width: 48px;
-  height: 48px;
-  border-width: 4px;
-}
-
