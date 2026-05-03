@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { products, categories } from '../data/products';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import api from '../utils/api';
 import { Search, Star, ShoppingCart, Filter, Sparkles } from 'lucide-react';
 import './ShopPage.css';
 
@@ -10,21 +10,33 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState('featured');
   const [buyingProduct, setBuyingProduct] = useState(null);
   const [buyForm, setBuyForm] = useState({ color: '', quantity: 1 });
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(['All']);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const { addToCart } = useApp();
 
-  const filtered = products
-    .filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase());
-      const matchCategory = selectedCategory === 'All' || p.category === selectedCategory;
-      return matchSearch && matchCategory;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'price-low') return a.price - b.price;
-      if (sortBy === 'price-high') return b.price - a.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      return 0;
-    });
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const [productsData, categoriesData] = await Promise.all([
+          api.getProducts({ search, category: selectedCategory, sort: sortBy }),
+          api.getCategories(),
+        ]);
+        setProducts(productsData.products);
+        setCategories(categoriesData.categories);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    // Debounce search input
+    const timer = setTimeout(fetchProducts, search ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [search, selectedCategory, sortBy]);
 
   const handleBuyClick = (product) => {
     setBuyingProduct(product);
@@ -109,7 +121,12 @@ export default function ShopPage() {
       {/* Product Grid */}
       <section className="shop-products">
         <div className="container">
-          {filtered.length === 0 ? (
+          {loadingProducts ? (
+            <div className="shop-empty">
+              <div className="spinner" />
+              <h3>Loading products...</h3>
+            </div>
+          ) : products.length === 0 ? (
             <div className="shop-empty">
               <span className="shop-empty-icon">🔍</span>
               <h3>No products found</h3>
@@ -117,7 +134,7 @@ export default function ShopPage() {
             </div>
           ) : (
             <div className="product-grid stagger-children">
-              {filtered.map(product => (
+              {products.map(product => (
                 <div key={product.id} className="product-card card" id={`product-${product.id}`}>
                   <div className="product-card-image">
                     <span className="product-emoji">{product.emoji}</span>

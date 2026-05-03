@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Headset, Send, MessageCircle, Phone, Mail, Clock, HelpCircle, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
 import './SupportPage.css';
@@ -27,15 +27,21 @@ const faqItems = [
 ];
 
 export default function SupportPage() {
-  const { user, addToast } = useApp();
+  const { user, addToast, submitTicket, orders, fetchOrders } = useApp();
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [form, setForm] = useState({
     subject: '',
     category: 'general',
     message: '',
+    orderId: '',
   });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Fetch orders so we can link tickets to them
+  useEffect(() => {
+    fetchOrders();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,14 +50,20 @@ export default function SupportPage() {
       return;
     }
     setSending(true);
-    await new Promise(r => setTimeout(r, 1200));
+    const result = await submitTicket(
+      form.subject,
+      form.category,
+      form.message,
+      form.orderId || null
+    );
     setSending(false);
-    setSubmitted(true);
-    addToast('Support ticket submitted! We\'ll get back to you soon.');
+    if (result.success) {
+      setSubmitted(true);
+    }
   };
 
   const resetForm = () => {
-    setForm({ subject: '', category: 'general', message: '' });
+    setForm({ subject: '', category: 'general', message: '', orderId: '' });
     setSubmitted(false);
   };
 
@@ -169,6 +181,26 @@ export default function SupportPage() {
                     <option value="technical">Technical Support</option>
                   </select>
                 </div>
+
+                {/* Order Selector — link ticket to a specific order */}
+                {orders.length > 0 && (
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="support-order">Related Order (Optional)</label>
+                    <select
+                      id="support-order"
+                      className="form-input form-select"
+                      value={form.orderId}
+                      onChange={e => setForm(p => ({ ...p, orderId: e.target.value }))}
+                    >
+                      <option value="">No specific order</option>
+                      {orders.map(order => (
+                        <option key={order.id} value={order.id}>
+                          Order {order.id.slice(0, 8).toUpperCase()} — ${order.total.toFixed(2)} ({order.status})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="form-label" htmlFor="support-subject">Subject *</label>

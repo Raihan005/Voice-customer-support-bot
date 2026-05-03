@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../utils/api';
 
 const AppContext = createContext();
 
@@ -9,34 +10,26 @@ export function AppProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Cart state
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem('shopvault_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Cart state (fetched from API)
+  const [cart, setCart] = useState([]);
 
-  // Orders state
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('shopvault_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Orders state (fetched from API)
+  const [orders, setOrders] = useState([]);
 
   // Toast notifications
   const [toasts, setToasts] = useState([]);
 
-  // Persist state
+  // Loading states
+  const [loading, setLoading] = useState(false);
+
+  // Persist user to localStorage for page refresh persistence
   useEffect(() => {
-    if (user) localStorage.setItem('shopvault_user', JSON.stringify(user));
-    else localStorage.removeItem('shopvault_user');
+    if (user) {
+      localStorage.setItem('shopvault_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('shopvault_user');
+    }
   }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem('shopvault_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    localStorage.setItem('shopvault_orders', JSON.stringify(orders));
-  }, [orders]);
 
   // Toast helpers
   const addToast = (message, type = 'success') => {
@@ -51,89 +44,164 @@ export function AppProvider({ children }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Auth functions
-  const login = (email, password) => {
-    const users = JSON.parse(localStorage.getItem('shopvault_users') || '[]');
-    const found = users.find(u => u.email === email && u.password === password);
-    if (found) {
-      setUser({ name: found.name, email: found.email });
-      addToast(`Welcome back, ${found.name}!`);
-      return { success: true };
+  // ============================================
+  // FETCH DATA ON LOGIN
+  // ============================================
+  const fetchCart = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await api.getCart();
+      setCart(data.cart);
+    } catch (error) {
+      console.error('Failed to fetch cart:', error);
     }
-    return { success: false, error: 'Invalid email or password' };
+  }, [user]);
+
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await api.getOrders();
+      setOrders(data.orders);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+  }, [user]);
+
+  // Load cart and orders when user logs in
+  useEffect(() => {
+    if (user) {
+      fetchCart();
+      fetchOrders();
+    } else {
+      setCart([]);
+      setOrders([]);
+    }
+  }, [user, fetchCart, fetchOrders]);
+
+  // Verify token on mount (in case it expired while away)
+  useEffect(() => {
+    const token = localStorage.getItem('shopvault_token');
+    if (token && user) {
+      api.getMe().catch(() => {
+        // Token invalid — force logout
+        setUser(null);
+        api.logout();
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ============================================
+  // AUTH FUNCTIONS
+  // ============================================
+  const login = async (email, password) => {
+    try {
+      const data = await api.login(email, password);
+      setUser(data.user);
+      addToast(data.message || `Welcome back, ${data.user.name}!`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   };
 
-  const signup = (name, email, password) => {
-    const users = JSON.parse(localStorage.getItem('shopvault_users') || '[]');
-    if (users.find(u => u.email === email)) {
-      return { success: false, error: 'An account with this email already exists' };
+  const signup = async (name, email, password) => {
+    try {
+      const data = await api.register(name, email, password);
+      setUser(data.user);
+      addToast(data.message || `Welcome to ShopVault, ${data.user.name}!`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-    users.push({ name, email, password });
-    localStorage.setItem('shopvault_users', JSON.stringify(users));
-    setUser({ name, email });
-    addToast(`Welcome to ShopVault, ${name}!`);
-    return { success: true };
   };
 
   const logout = () => {
     setUser(null);
     setCart([]);
+    setOrders([]);
+    api.logout();
     addToast('You have been logged out');
   };
 
-  // Cart functions
-  const addToCart = (product, quantity = 1, selectedColor = null) => {
-    setCart(prev => {
-      const existingIndex = prev.findIndex(
-        item => item.id === product.id && item.selectedColor === selectedColor
-      );
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex].quantity += quantity;
-        return updated;
-      }
-      return [...prev, { ...product, quantity, selectedColor }];
-    });
-    addToast(`${product.name} added to cart`);
+  // ============================================
+  // CART FUNCTIONS
+  // ============================================
+  const addToCart = async (product, quantity = 1, selectedColor = null) => {
+    try {
+      await api.addToCart(product.id, quantity, selectedColor);
+      await fetchCart(); // Re-fetch to get updated cart from server
+      addToast(`${product.name} added to cart`);
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const removeFromCart = (productId, selectedColor) => {
-    setCart(prev => prev.filter(
-      item => !(item.id === productId && item.selectedColor === selectedColor)
-    ));
+  const removeFromCart = async (cartItemId) => {
+    try {
+      await api.removeCartItem(cartItemId);
+      setCart(prev => prev.filter(item => item.cartItemId !== cartItemId));
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const updateCartQuantity = (productId, selectedColor, quantity) => {
+  const updateCartQuantity = async (cartItemId, quantity) => {
     if (quantity <= 0) {
-      removeFromCart(productId, selectedColor);
+      removeFromCart(cartItemId);
       return;
     }
-    setCart(prev => prev.map(item =>
-      item.id === productId && item.selectedColor === selectedColor
-        ? { ...item, quantity }
-        : item
-    ));
+    try {
+      await api.updateCartItem(cartItemId, quantity);
+      setCart(prev => prev.map(item =>
+        item.cartItemId === cartItemId
+          ? { ...item, quantity }
+          : item
+      ));
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = async () => {
+    try {
+      await api.clearCart();
+      setCart([]);
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
+  };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Order functions
-  const placeOrder = (shippingInfo) => {
-    const order = {
-      id: `SV-${Date.now().toString(36).toUpperCase()}`,
-      items: [...cart],
-      total: cartTotal,
-      shipping: shippingInfo,
-      status: 'Processing',
-      date: new Date().toISOString(),
-    };
-    setOrders(prev => [order, ...prev]);
-    clearCart();
-    addToast('Order placed successfully! 🎉');
-    return order;
+  // ============================================
+  // ORDER FUNCTIONS
+  // ============================================
+  const placeOrder = async (shippingInfo) => {
+    try {
+      const data = await api.placeOrder(shippingInfo);
+      setCart([]); // Clear local cart
+      setOrders(prev => [data.order, ...prev]); // Add new order to top
+      addToast('Order placed successfully! 🎉');
+      return data.order;
+    } catch (error) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  };
+
+  // ============================================
+  // SUPPORT FUNCTIONS
+  // ============================================
+  const submitTicket = async (subject, category, message, orderId = null) => {
+    try {
+      const data = await api.createTicket(subject, category, message, orderId);
+      addToast(data.message || "Support ticket submitted! We'll get back to you soon.");
+      return { success: true, ticket: data.ticket };
+    } catch (error) {
+      addToast(error.message, 'error');
+      return { success: false, error: error.message };
+    }
   };
 
   const value = {
@@ -150,9 +218,12 @@ export function AppProvider({ children }) {
     cartCount,
     orders,
     placeOrder,
+    fetchOrders,
     toasts,
     addToast,
     removeToast,
+    submitTicket,
+    loading,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
