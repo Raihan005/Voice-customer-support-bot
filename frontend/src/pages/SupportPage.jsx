@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Headset, Send, MessageCircle, Phone, Mail, Clock, HelpCircle, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import VoiceCallModal from '../components/VoiceCallModal';
 import './SupportPage.css';
 
 const faqItems = [
@@ -29,6 +30,7 @@ const faqItems = [
 export default function SupportPage() {
   const { user, addToast, submitTicket, orders, fetchOrders } = useApp();
   const [expandedFaq, setExpandedFaq] = useState(null);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [form, setForm] = useState({
     subject: '',
     category: 'general',
@@ -98,13 +100,13 @@ export default function SupportPage() {
             <p>Send us a detailed message and we'll respond within 24hrs</p>
             <span className="support-channel-detail">support@shopvault.com</span>
           </div>
-          <div className="support-channel card">
+          <div className="support-channel card cursor-pointer hover-glow" onClick={() => setShowVoiceCall(true)}>
             <div className="support-channel-icon">
               <Phone size={24} />
             </div>
-            <h3>Phone Support</h3>
-            <p>Speak directly with a support representative</p>
-            <span className="support-channel-detail">+1 (800) 555-SHOP</span>
+            <h3>Voice AI Support</h3>
+            <p>Speak directly with our AI support agent</p>
+            <span className="badge badge-primary">Connect to Support Agent</span>
           </div>
           <div className="support-channel card">
             <div className="support-channel-icon">
@@ -244,6 +246,7 @@ export default function SupportPage() {
           </div>
         </div>
       </div>
+      <VoiceCallModal isOpen={showVoiceCall} onClose={() => setShowVoiceCall(false)} />
     </div>
   );
 }

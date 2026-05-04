@@ -191,6 +191,12 @@ class ApiClient {
       body: JSON.stringify({ subject, category, message, orderId }),
     });
   }
+
+  async getLivekitToken() {
+    return this.request('/livekit/token', {
+      method: 'POST',
+    });
+  }
 }
 
 const api = new ApiClient();

@@ -10,6 +10,7 @@ import productRoutes from './routes/products.js';
 import cartRoutes from './routes/cart.js';
 import orderRoutes from './routes/orders.js';
 import supportRoutes from './routes/support.js';
+import livekitRoutes from './routes/livekit.js';
 import pool from './config/db.js';
 
 // Load env variables
@@ -79,6 +80,7 @@ app.use('/api/products', authenticate, productRoutes);
 app.use('/api/cart', authenticate, cartRoutes);
 app.use('/api/orders', authenticate, orderRoutes);
 app.use('/api/support', authenticate, supportRoutes);
+app.use('/api/livekit', authenticate, livekitRoutes);
 
 // ============================================
 // ERROR HANDLING
