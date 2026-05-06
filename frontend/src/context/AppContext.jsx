@@ -1,84 +1,37 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import api from '../utils/api';
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
   // Auth state
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  // Cart state (stays in localStorage — client-side concern)
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem('shopvault_cart');
-    return saved ? JSON.parse(saved) : [];
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('shopvault_user');
+    return saved ? JSON.parse(saved) : null;
   });
 
-  // Orders state
+  // Cart state (fetched from API)
+  const [cart, setCart] = useState([]);
+
+  // Orders state (fetched from API)
   const [orders, setOrders] = useState([]);
 
   // Toast notifications
   const [toasts, setToasts] = useState([]);
 
-  // Persist cart to localStorage
+  // Loading states
+  const [loading, setLoading] = useState(false);
+
+  // Persist user to localStorage for page refresh persistence
   useEffect(() => {
-    localStorage.setItem('shopvault_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  // ──────────────────────────────────────────────
-  // Auth: Listen for session changes
-  // ──────────────────────────────────────────────
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
-      } else {
-        setAuthLoading(false);
-      }
-    });
-
-    // Listen for auth changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, currentSession) => {
-        setSession(currentSession);
-        if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id);
-        } else {
-          setUser(null);
-          setOrders([]);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch user profile from profiles table
-  const fetchProfile = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      setUser({ id: data.id, name: data.name, email: data.email });
-      // Also fetch orders when profile loads
-      await fetchOrders();
-    } catch (err) {
-      console.error('Error fetching profile:', err.message);
-    } finally {
-      setAuthLoading(false);
+    if (user) {
+      localStorage.setItem('shopvault_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('shopvault_user');
     }
-  };
+  }, [user]);
 
-  // ──────────────────────────────────────────────
   // Toast helpers
-  // ──────────────────────────────────────────────
   const addToast = (message, type = 'success') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -91,229 +44,168 @@ export function AppProvider({ children }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // ──────────────────────────────────────────────
-  // Auth functions
-  // ──────────────────────────────────────────────
-  const login = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  // ============================================
+  // FETCH DATA ON LOGIN
+  // ============================================
+  const fetchCart = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await api.getCart();
+      setCart(data.cart);
+    } catch (error) {
+      console.error('Failed to fetch cart:', error);
+    }
+  }, [user]);
 
-    if (error) {
+  const fetchOrders = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await api.getOrders();
+      setOrders(data.orders);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+  }, [user]);
+
+  // Load cart and orders when user logs in
+  useEffect(() => {
+    if (user) {
+      fetchCart();
+      fetchOrders();
+    } else {
+      setCart([]);
+      setOrders([]);
+    }
+  }, [user, fetchCart, fetchOrders]);
+
+  // Verify token on mount (in case it expired while away)
+  useEffect(() => {
+    const token = localStorage.getItem('shopvault_token');
+    if (token && user) {
+      api.getMe().catch(() => {
+        // Token invalid — force logout
+        setUser(null);
+        api.logout();
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ============================================
+  // AUTH FUNCTIONS
+  // ============================================
+  const login = async (email, password) => {
+    try {
+      const data = await api.login(email, password);
+      setUser(data.user);
+      addToast(data.message || `Welcome back, ${data.user.name}!`);
+      return { success: true };
+    } catch (error) {
       return { success: false, error: error.message };
     }
-
-    // Profile will be fetched by onAuthStateChange listener
-    const profile = await supabase
-      .from('profiles')
-      .select('name')
-      .eq('id', data.user.id)
-      .single();
-
-    addToast(`Welcome back, ${profile.data?.name || 'User'}!`);
-    return { success: true };
   };
 
   const signup = async (name, email, password) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name }, // Passed to the handle_new_user trigger via raw_user_meta_data
-      },
-    });
-
-    if (error) {
+    try {
+      const data = await api.register(name, email, password);
+      setUser(data.user);
+      addToast(data.message || `Welcome to ShopVault, ${data.user.name}!`);
+      return { success: true };
+    } catch (error) {
       return { success: false, error: error.message };
     }
-
-    // If email confirmation is disabled, user is immediately logged in
-    // The onAuthStateChange listener will fetch the profile
-    addToast(`Welcome to ShopVault, ${name}!`);
-    return { success: true };
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
     setUser(null);
     setCart([]);
     setOrders([]);
+    api.logout();
     addToast('You have been logged out');
   };
 
-  // ──────────────────────────────────────────────
-  // Cart functions (unchanged — stays client-side)
-  // ──────────────────────────────────────────────
-  const addToCart = (product, quantity = 1, selectedColor = null) => {
-    setCart(prev => {
-      const existingIndex = prev.findIndex(
-        item => item.id === product.id && item.selectedColor === selectedColor
-      );
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex].quantity += quantity;
-        return updated;
-      }
-      return [...prev, { ...product, quantity, selectedColor }];
-    });
-    addToast(`${product.name} added to cart`);
+  // ============================================
+  // CART FUNCTIONS
+  // ============================================
+  const addToCart = async (product, quantity = 1, selectedColor = null) => {
+    try {
+      await api.addToCart(product.id, quantity, selectedColor);
+      await fetchCart(); // Re-fetch to get updated cart from server
+      addToast(`${product.name} added to cart`);
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const removeFromCart = (productId, selectedColor) => {
-    setCart(prev => prev.filter(
-      item => !(item.id === productId && item.selectedColor === selectedColor)
-    ));
+  const removeFromCart = async (cartItemId) => {
+    try {
+      await api.removeCartItem(cartItemId);
+      setCart(prev => prev.filter(item => item.cartItemId !== cartItemId));
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const updateCartQuantity = (productId, selectedColor, quantity) => {
+  const updateCartQuantity = async (cartItemId, quantity) => {
     if (quantity <= 0) {
-      removeFromCart(productId, selectedColor);
+      removeFromCart(cartItemId);
       return;
     }
-    setCart(prev => prev.map(item =>
-      item.id === productId && item.selectedColor === selectedColor
-        ? { ...item, quantity }
-        : item
-    ));
+    try {
+      await api.updateCartItem(cartItemId, quantity);
+      setCart(prev => prev.map(item =>
+        item.cartItemId === cartItemId
+          ? { ...item, quantity }
+          : item
+      ));
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = async () => {
+    try {
+      await api.clearCart();
+      setCart([]);
+    } catch (error) {
+      addToast(error.message, 'error');
+    }
+  };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // ──────────────────────────────────────────────
-  // Order functions
-  // ──────────────────────────────────────────────
-  const fetchOrders = useCallback(async () => {
-    try {
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
-
-      // Transform to match the existing frontend shape
-      const transformed = (ordersData || []).map(order => ({
-        id: order.id.substring(0, 8).toUpperCase(),
-        rawId: order.id,
-        items: (order.order_items || []).map(item => ({
-          id: item.product_id,
-          name: item.product_name,
-          emoji: item.product_emoji,
-          price: Number(item.price_at_purchase),
-          quantity: item.quantity,
-          selectedColor: item.selected_color,
-        })),
-        total: Number(order.total),
-        shipping: order.shipping,
-        status: order.status,
-        date: order.created_at,
-      }));
-
-      setOrders(transformed);
-    } catch (err) {
-      console.error('Error fetching orders:', err.message);
-    }
-  }, []);
-
+  // ============================================
+  // ORDER FUNCTIONS
+  // ============================================
   const placeOrder = async (shippingInfo) => {
-    if (!user) return null;
-
     try {
-      // 1. Create the order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          total: cartTotal,
-          shipping: shippingInfo,
-          status: 'Processing',
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // 2. Create order items
-      const orderItems = cart.map(item => ({
-        order_id: orderData.id,
-        product_id: item.id,
-        product_name: item.name,
-        product_emoji: item.emoji,
-        quantity: item.quantity,
-        selected_color: item.selectedColor,
-        price_at_purchase: item.price,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // 3. Clear cart and refresh orders
-      clearCart();
-      await fetchOrders();
-
-      const order = {
-        id: orderData.id.substring(0, 8).toUpperCase(),
-        rawId: orderData.id,
-        items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          emoji: item.emoji,
-          price: item.price,
-          quantity: item.quantity,
-          selectedColor: item.selectedColor,
-        })),
-        total: cartTotal,
-        shipping: shippingInfo,
-        status: 'Processing',
-        date: orderData.created_at,
-      };
-
+      const data = await api.placeOrder(shippingInfo);
+      setCart([]); // Clear local cart
+      setOrders(prev => [data.order, ...prev]); // Add new order to top
       addToast('Order placed successfully! 🎉');
-      return order;
-    } catch (err) {
-      console.error('Error placing order:', err.message);
-      addToast('Failed to place order. Please try again.', 'error');
-      return null;
+      return data.order;
+    } catch (error) {
+      addToast(error.message, 'error');
+      throw error;
     }
   };
 
-  // ──────────────────────────────────────────────
-  // Support ticket
-  // ──────────────────────────────────────────────
-  const submitSupportTicket = async (subject, category, message) => {
-    if (!user) return { success: false, error: 'Not logged in' };
-
+  // ============================================
+  // SUPPORT FUNCTIONS
+  // ============================================
+  const submitTicket = async (subject, category, message, orderId = null) => {
     try {
-      const { error } = await supabase
-        .from('support_tickets')
-        .insert({
-          user_id: user.id,
-          subject,
-          category,
-          message,
-        });
-
-      if (error) throw error;
-      return { success: true };
-    } catch (err) {
-      console.error('Error submitting ticket:', err.message);
-      return { success: false, error: err.message };
+      const data = await api.createTicket(subject, category, message, orderId);
+      addToast(data.message || "Support ticket submitted! We'll get back to you soon.");
+      return { success: true, ticket: data.ticket };
+    } catch (error) {
+      addToast(error.message, 'error');
+      return { success: false, error: error.message };
     }
   };
 
   const value = {
     user,
-    authLoading,
     login,
     signup,
     logout,
@@ -327,10 +219,11 @@ export function AppProvider({ children }) {
     orders,
     placeOrder,
     fetchOrders,
-    submitSupportTicket,
     toasts,
     addToast,
     removeToast,
+    submitTicket,
+    loading,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

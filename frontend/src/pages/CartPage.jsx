@@ -42,9 +42,11 @@ export default function CartPage() {
   };
 
   const handlePlaceOrder = async () => {
-    const order = await placeOrder(shipping);
-    if (order) {
+    try {
+      const order = await placeOrder(shipping);
       navigate('/profile', { state: { showOrders: true, newOrder: order.id } });
+    } catch (error) {
+      // Error handled by context toast
     }
   };
 
@@ -95,7 +97,7 @@ export default function CartPage() {
                 Shopping Cart ({cart.length} items)
               </h2>
               {cart.map(item => (
-                <div key={`${item.id}-${item.selectedColor}`} className="cart-item card">
+                <div key={item.cartItemId} className="cart-item card">
                   <div className="cart-item-image">
                     <span className="cart-item-emoji">{item.emoji}</span>
                   </div>
@@ -107,14 +109,14 @@ export default function CartPage() {
                     <div className="cart-item-quantity">
                       <button
                         className="buy-quantity-btn"
-                        onClick={() => updateCartQuantity(item.id, item.selectedColor, item.quantity - 1)}
+                        onClick={() => updateCartQuantity(item.cartItemId, item.quantity - 1)}
                       >
                         <Minus size={14} />
                       </button>
                       <span className="cart-item-qty">{item.quantity}</span>
                       <button
                         className="buy-quantity-btn"
-                        onClick={() => updateCartQuantity(item.id, item.selectedColor, item.quantity + 1)}
+                        onClick={() => updateCartQuantity(item.cartItemId, item.quantity + 1)}
                       >
                         <Plus size={14} />
                       </button>
@@ -124,7 +126,7 @@ export default function CartPage() {
                     <span className="cart-item-price">${(item.price * item.quantity).toFixed(2)}</span>
                     <button
                       className="cart-item-remove"
-                      onClick={() => removeFromCart(item.id, item.selectedColor)}
+                      onClick={() => removeFromCart(item.cartItemId)}
                       aria-label="Remove item"
                     >
                       <Trash2 size={16} />
@@ -243,7 +245,7 @@ export default function CartPage() {
               <div className="confirm-section">
                 <h4>Items ({cart.length})</h4>
                 {cart.map(item => (
-                  <div key={`${item.id}-${item.selectedColor}`} className="confirm-item">
+                  <div key={item.cartItemId} className="confirm-item">
                     <span>{item.emoji} {item.name}</span>
                     <span>x{item.quantity} — ${(item.price * item.quantity).toFixed(2)}</span>
                   </div>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Headset, Send, MessageCircle, Phone, Mail, Clock, HelpCircle, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import VoiceCallModal from '../components/VoiceCallModal';
 import './SupportPage.css';
 
 const faqItems = [
@@ -27,15 +28,22 @@ const faqItems = [
 ];
 
 export default function SupportPage() {
-  const { user, addToast, submitSupportTicket } = useApp();
+  const { user, addToast, submitTicket, orders, fetchOrders } = useApp();
   const [expandedFaq, setExpandedFaq] = useState(null);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [form, setForm] = useState({
     subject: '',
     category: 'general',
     message: '',
+    orderId: '',
   });
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Fetch orders so we can link tickets to them
+  useEffect(() => {
+    fetchOrders();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,18 +52,20 @@ export default function SupportPage() {
       return;
     }
     setSending(true);
-    const result = await submitSupportTicket(form.subject, form.category, form.message);
+    const result = await submitTicket(
+      form.subject,
+      form.category,
+      form.message,
+      form.orderId || null
+    );
     setSending(false);
     if (result.success) {
       setSubmitted(true);
-      addToast('Support ticket submitted! We\'ll get back to you soon.');
-    } else {
-      addToast('Failed to submit ticket. Please try again.', 'error');
     }
   };
 
   const resetForm = () => {
-    setForm({ subject: '', category: 'general', message: '' });
+    setForm({ subject: '', category: 'general', message: '', orderId: '' });
     setSubmitted(false);
   };
 
@@ -90,13 +100,13 @@ export default function SupportPage() {
             <p>Send us a detailed message and we'll respond within 24hrs</p>
             <span className="support-channel-detail">support@shopvault.com</span>
           </div>
-          <div className="support-channel card">
+          <div className="support-channel card cursor-pointer hover-glow" onClick={() => setShowVoiceCall(true)}>
             <div className="support-channel-icon">
               <Phone size={24} />
             </div>
-            <h3>Phone Support</h3>
-            <p>Speak directly with a support representative</p>
-            <span className="support-channel-detail">+1 (800) 555-SHOP</span>
+            <h3>Voice AI Support</h3>
+            <p>Speak directly with our AI support agent</p>
+            <span className="badge badge-primary">Connect to Support Agent</span>
           </div>
           <div className="support-channel card">
             <div className="support-channel-icon">
@@ -174,6 +184,26 @@ export default function SupportPage() {
                   </select>
                 </div>
 
+                {/* Order Selector — link ticket to a specific order */}
+                {orders.length > 0 && (
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="support-order">Related Order (Optional)</label>
+                    <select
+                      id="support-order"
+                      className="form-input form-select"
+                      value={form.orderId}
+                      onChange={e => setForm(p => ({ ...p, orderId: e.target.value }))}
+                    >
+                      <option value="">No specific order</option>
+                      {orders.map(order => (
+                        <option key={order.id} value={order.id}>
+                          Order {order.id.slice(0, 8).toUpperCase()} — ${order.total.toFixed(2)} ({order.status})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label className="form-label" htmlFor="support-subject">Subject *</label>
                   <input
@@ -216,6 +246,7 @@ export default function SupportPage() {
           </div>
         </div>
       </div>
+      <VoiceCallModal isOpen={showVoiceCall} onClose={() => setShowVoiceCall(false)} />
     </div>
   );
 }

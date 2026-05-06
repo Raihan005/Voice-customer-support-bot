@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shopvault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shopvault
+      POSTGRES_USER: shopvault_user
+      POSTGRES_PASSWORD: shopvault_secret_2024
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/src/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U shopvault_user -d shopvault" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
