@@ -60,9 +60,9 @@ class ShopVaultFncCtx:
         return await asyncpg.create_pool(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", "5432")),
-            database=os.getenv("DB_NAME", "shopvault"),
-            user=os.getenv("DB_USER", "shopvault_user"),
-            password=os.getenv("DB_PASSWORD", "shopvault_secret_2024")
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
         )
 
     @llm.function_tool(description="Retrieves the profile information of the current customer, including their name and email.")
@@ -113,11 +113,11 @@ class ShopVaultFncCtx:
     @llm.function_tool(description="Searches company policies to answer customer questions about returns, shipping, warranty, etc.")
     async def query_company_policies(self, question: str):
         try:
-            db_host = os.getenv("DB_HOST", "localhost")
-            db_port = os.getenv("DB_PORT", "5432")
-            db_name = os.getenv("DB_NAME", "shopvault")
-            db_user = os.getenv("DB_USER", "shopvault_user")
-            db_password = os.getenv("DB_PASSWORD", "shopvault_secret_2024")
+            db_host = os.getenv("DB_HOST")
+            db_port = os.getenv("DB_PORT")
+            db_name = os.getenv("DB_NAME")
+            db_user = os.getenv("DB_USER")
+            db_password = os.getenv("DB_PASSWORD")
             api_key = os.getenv("GEMINI_API_KEY")
             
             from llama_index.core import Settings
